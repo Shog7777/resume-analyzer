@@ -28,7 +28,7 @@ RESUME:
 JOB DESCRIPTION:
 {job_description[:1500]}"""
 
-    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" + api_key
+    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + api_key
 
     payload = json.dumps({
         "contents": [{"parts": [{"text": prompt}]}],
