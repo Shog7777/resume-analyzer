@@ -1,57 +1,59 @@
 import json
 import re
-import anthropic
+import os
+import urllib.request
+import urllib.error
 
 
 def analyze_match(resume_text: str, job_description: str) -> dict:
     """
-    Analyze resume vs job description using Claude AI.
+    Analyze resume vs job description using Google Gemini API.
     Returns structured match analysis.
     """
-    client = anthropic.Anthropic()
+    api_key = os.environ.get("GEMINI_API_KEY", "")
 
     prompt = f"""You are an expert ATS (Applicant Tracking System) analyzer.
 
-Analyze the following resume against the job description and return a JSON object with this exact structure:
+Analyze the resume against the job description and return ONLY a JSON object with this exact structure, no markdown, no explanation:
 
 {{
   "overall_score": <integer 0-100>,
   "skills_score": <integer 0-100>,
   "experience_score": <integer 0-100>,
   "keywords_score": <integer 0-100>,
-  "matched_keywords": [<list of matched keywords/skills, max 15>],
-  "missing_keywords": [<list of important missing keywords, max 10>],
-  "suggestions": [<list of 3-5 specific improvement suggestions>],
-  "summary": "<2-3 sentence analysis summary>"
+  "matched_keywords": ["keyword1", "keyword2"],
+  "missing_keywords": ["keyword1", "keyword2"],
+  "suggestions": ["suggestion1", "suggestion2", "suggestion3"],
+  "summary": "2-3 sentence analysis summary"
 }}
 
-Scoring criteria:
-- overall_score: weighted average of all factors
-- skills_score: how well technical and soft skills match
-- experience_score: relevance of experience to the role
-- keywords_score: percentage of important JD keywords found in resume
-
-Be strict and realistic in scoring — most resumes score 40-80%.
-
 RESUME:
-{resume_text[:3000]}
+{resume_text[:2000]}
 
 JOB DESCRIPTION:
-{job_description[:2000]}
+{job_description[:1500]}"""
 
-Return ONLY the JSON object, no markdown, no explanation."""
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
 
-    message = client.messages.create(
-        model="claude-sonnet-4-6",
-        max_tokens=2048,
-        messages=[{"role": "user", "content": prompt}]
+    payload = json.dumps({
+        "contents": [{"parts": [{"text": prompt}]}],
+        "generationConfig": {"temperature": 0.1, "maxOutputTokens": 1500}
+    }).encode("utf-8")
+
+    req = urllib.request.Request(
+        url,
+        data=payload,
+        headers={
+            "Content-Type": "application/json",
+            "X-goog-api-key": api_key
+        }
     )
 
-    response_text = message.content[0].text.strip()
+    with urllib.request.urlopen(req) as response:
+        data = json.loads(response.read().decode("utf-8"))
 
-    # Clean up response
+    response_text = data["candidates"][0]["content"]["parts"][0]["text"].strip()
     response_text = re.sub(r'```json\s*', '', response_text)
     response_text = re.sub(r'```\s*', '', response_text)
 
-    result = json.loads(response_text)
-    return result
+    return json.loads(response_text)
