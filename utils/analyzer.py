@@ -1,8 +1,7 @@
 import json
 import re
 import os
-import urllib.request
-import urllib.error
+import requests
 
 
 def analyze_match(resume_text: str, job_description: str) -> dict:
@@ -28,30 +27,26 @@ RESUME:
 JOB DESCRIPTION:
 {job_description[:1500]}"""
 
-    payload = json.dumps({
-        "model": "llama-3.1-8b-instant",
-        "messages": [{"role": "user", "content": prompt}],
-        "max_tokens": 1500,
-        "temperature": 0.1
-    }).encode("utf-8")
-
-    req = urllib.request.Request(
+    response = requests.post(
         "https://api.groq.com/openai/v1/chat/completions",
-        data=payload,
         headers={
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {api_key}"
-        }
+            "Authorization": f"Bearer {api_key}",
+            "User-Agent": "resume-analyzer/1.0"
+        },
+        json={
+            "model": "llama-3.1-8b-instant",
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": 1500,
+            "temperature": 0.1
+        },
+        timeout=30
     )
 
-    try:
-        with urllib.request.urlopen(req) as response:
-            data = json.loads(response.read().decode("utf-8"))
-    except urllib.error.HTTPError as e:
-        error_body = e.read().decode("utf-8")
-        raise Exception(f"Groq API Error {e.code}: {error_body}")
+    if response.status_code != 200:
+        raise Exception(f"Groq API Error {response.status_code}: {response.text}")
 
-    response_text = data["choices"][0]["message"]["content"].strip()
+    response_text = response.json()["choices"][0]["message"]["content"].strip()
     response_text = re.sub(r'```json\s*', '', response_text)
     response_text = re.sub(r'```\s*', '', response_text)
 
