@@ -43,7 +43,7 @@ Return ONLY the JSON object, no markdown, no explanation."""
 
     message = client.messages.create(
         model="claude-sonnet-4-6",
-        max_tokens=1000,
+        max_tokens=2048,
         messages=[{"role": "user", "content": prompt}]
     )
 
