@@ -6,15 +6,10 @@ import urllib.error
 
 
 def analyze_match(resume_text: str, job_description: str) -> dict:
-    """
-    Analyze resume vs job description using Google Gemini API.
-    Returns structured match analysis.
-    """
     api_key = os.environ.get("GEMINI_API_KEY", "")
 
-    prompt = f"""You are an expert ATS (Applicant Tracking System) analyzer.
-
-Analyze the resume against the job description and return ONLY a JSON object with this exact structure, no markdown, no explanation:
+    prompt = f"""You are an expert ATS analyzer. Analyze the resume against the job description.
+Return ONLY a JSON object, no markdown, no explanation:
 
 {{
   "overall_score": <integer 0-100>,
@@ -33,7 +28,7 @@ RESUME:
 JOB DESCRIPTION:
 {job_description[:1500]}"""
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" + api_key
 
     payload = json.dumps({
         "contents": [{"parts": [{"text": prompt}]}],
@@ -43,14 +38,15 @@ JOB DESCRIPTION:
     req = urllib.request.Request(
         url,
         data=payload,
-        headers={
-            "Content-Type": "application/json",
-            "X-goog-api-key": api_key
-        }
+        headers={"Content-Type": "application/json"}
     )
 
-    with urllib.request.urlopen(req) as response:
-        data = json.loads(response.read().decode("utf-8"))
+    try:
+        with urllib.request.urlopen(req) as response:
+            data = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        error_body = e.read().decode("utf-8")
+        raise Exception(f"Gemini API Error {e.code}: {error_body}")
 
     response_text = data["candidates"][0]["content"]["parts"][0]["text"].strip()
     response_text = re.sub(r'```json\s*', '', response_text)
